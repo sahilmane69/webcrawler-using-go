@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
+
+	"golang.org/x/net/html"
 )
 
 func main() {
@@ -35,6 +39,32 @@ func main() {
 
 	fmt.Println("Status:", resp.Status)
 	fmt.Println("Content-Type:", resp.Header.Get("Content-Type"))
+
+	z := html.NewTokenizer(bytes.NewReader(body))
+	for {
+		if z.Next() == html.ErrorToken {
+			break
+		}
+
+		tag := z.Token()
+		if tag.Type != html.StartTagToken || tag.Data != "a" {
+			continue
+		}
+
+		for _, attr := range tag.Attr {
+			if attr.Key != "href" {
+				continue
+			}
+
+			link, err := url.Parse(attr.Val)
+			if err != nil {
+				continue
+			}
+
+			fullURL := resp.Request.URL.ResolveReference(link)
+			fmt.Println("Link:", fullURL)
+		}
+	}
 
 	if len(body) > 200 {
 		body = body[:200]
