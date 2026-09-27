@@ -96,97 +96,108 @@ func fetchPage(client *http.Client, pageURL, host string) (Result, error) {
 		return result, err
 	}
 
-	z := html.NewTokenizer(bytes.NewReader(body))
-	inTitle := false
-	inBody := false
-	skipContent := 0
-	inMain := 0
+	doc, err := html.Parse(bytes.NewReader(body))
+	if err != nil {
+		return result, err
+	}
 
-	var title strings.Builder
-	var bodyContent strings.Builder
-	var mainContent strings.Builder
+	var mainNode, bodyNode *html.Node
+	var walk func(*html.Node)
 
-	for {
-		if z.Next() == html.ErrorToken {
-			break
-		}
+	walk = func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			switch n.Data {
+			case "title":
+				result.Title = strings.Join(strings.Fields(textOf(n)), " ")
 
-		token := z.Token()
+			case "main":
+				if mainNode == nil {
+					mainNode = n
+				}
 
-		if token.Type == html.StartTagToken && token.Data == "title" {
-			inTitle = true
-			continue
-		}
-		if token.Type == html.StartTagToken && token.Data == "body" {
-			inBody = true
-		}
-		if token.Type == html.StartTagToken && token.Data == "main" {
-			inMain++
-		}
-		if token.Type == html.EndTagToken && token.Data == "main" && inMain > 0 {
-			inMain--
-		}
-		if token.Type == html.EndTagToken && token.Data == "body" {
-			inBody = false
-		}
+			case "body":
+				bodyNode = n
 
-		if token.Type == html.StartTagToken && inBody &&
-			(token.Data == "script" || token.Data == "style" || token.Data == "noscript" ||
-				token.Data == "nav" || token.Data == "header" || token.Data == "footer" || token.Data == "aside") {
-			skipContent++
-		}
-		if token.Type == html.EndTagToken && skipContent > 0 &&
-			(token.Data == "script" || token.Data == "style" || token.Data == "noscript" ||
-				token.Data == "nav" || token.Data == "header" || token.Data == "footer" || token.Data == "aside") {
-			skipContent--
-		}
+			case "a":
+				for _, attr := range n.Attr {
+					if attr.Key != "href" {
+						continue
+					}
 
-		if token.Type == html.EndTagToken && token.Data == "title" {
-			inTitle = false
-			continue
-		}
-		if inTitle && token.Type == html.TextToken {
-			title.WriteString(token.Data)
-		}
+					link, err := url.Parse(attr.Val)
+					if err != nil {
+						continue
+					}
 
-		if inBody && skipContent == 0 && token.Type == html.TextToken {
-			appendExcerpt(&bodyContent, token.Data)
-			if inMain > 0 {
-				appendExcerpt(&mainContent, token.Data)
+					fullURL := resp.Request.URL.ResolveReference(link)
+					fullURL.Fragment = ""
+
+					if (fullURL.Scheme == "https" || fullURL.Scheme == "http") &&
+						fullURL.Hostname() == host {
+						result.Links = append(result.Links, fullURL.String())
+					}
+				}
 			}
 		}
 
-		if token.Type != html.StartTagToken || token.Data != "a" {
-			continue
-		}
-
-		for _, attr := range token.Attr {
-			if attr.Key != "href" {
-				continue
-			}
-
-			link, err := url.Parse(attr.Val)
-			if err != nil {
-				continue
-			}
-
-			fullURL := resp.Request.URL.ResolveReference(link)
-			fullURL.Fragment = ""
-
-			if (fullURL.Scheme == "https" || fullURL.Scheme == "http") &&
-				fullURL.Hostname() == host {
-				result.Links = append(result.Links, fullURL.String())
-			}
+		for child := n.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
 		}
 	}
 
-	result.Title = strings.Join(strings.Fields(title.String()), " ")
-	result.Content = bodyContent.String()
-	if mainContent.Len() > 0 {
-		result.Content = mainContent.String()
+	walk(doc)
+
+	if mainNode != nil {
+		result.Content = excerptOf(mainNode)
+	}
+	if result.Content == "" && bodyNode != nil {
+		result.Content = excerptOf(bodyNode)
 	}
 
 	return result, nil
+}
+
+func textOf(n *html.Node) string {
+	var text strings.Builder
+	var walk func(*html.Node)
+
+	walk = func(node *html.Node) {
+		if node.Type == html.TextNode {
+			text.WriteString(node.Data)
+		}
+
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+
+	walk(n)
+	return text.String()
+}
+
+func excerptOf(root *html.Node) string {
+	var content strings.Builder
+	var walk func(*html.Node)
+
+	walk = func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			switch n.Data {
+			case "script", "style", "noscript", "nav", "header", "footer", "aside":
+				return
+			}
+		}
+
+		if n.Type == html.TextNode {
+			appendExcerpt(&content, n.Data)
+		}
+
+		for child := n.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+
+	walk(root)
+	return content.String()
 }
 
 func appendExcerpt(dst *strings.Builder, raw string) {
@@ -216,6 +227,7 @@ func appendExcerpt(dst *strings.Builder, raw string) {
 
 func loadRobots(client *http.Client, root *url.URL) (*robotstxt.RobotsData, error) {
 	robotsURL := root.ResolveReference(&url.URL{Path: "/robots.txt"})
+
 	req, err := http.NewRequest(http.MethodGet, robotsURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -378,6 +390,7 @@ func main() {
 	var workers sync.WaitGroup
 	for i := 0; i < *workerCount; i++ {
 		workers.Add(1)
+
 		go func() {
 			defer workers.Done()
 			worker(client, parsedURL.Hostname(), ticker.C, jobs, results)
@@ -491,7 +504,8 @@ func main() {
 	fmt.Println("HTML pages:", htmlPages)
 	fmt.Println("Non-HTML pages:", nonHTMLPages)
 	fmt.Println("Failed requests:", visited-htmlPages-nonHTMLPages)
-	fmt.Printf("Elapsed: %s | Rate: %.2f pages/sec\n",
+	fmt.Printf(
+		"Elapsed: %s | Rate: %.2f pages/sec\n",
 		elapsed.Round(time.Millisecond),
 		float64(visited)/elapsed.Seconds(),
 	)
