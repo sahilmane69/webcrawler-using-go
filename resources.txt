@@ -1,0 +1,33 @@
+Go Web Crawler — Resources
+
+Official Go documentation
+https://go.dev/doc/
+General Go language and tooling documentation.
+
+net/http package
+https://pkg.go.dev/net/http
+HTTP client, requests, responses, redirects, and timeouts used by the crawler.
+
+encoding/csv package
+https://pkg.go.dev/encoding/csv
+Writing and reading the local CSV archive.
+
+Go testing package
+https://pkg.go.dev/testing
+Unit tests for extraction, robots rules, and archive search.
+
+HTML parser (golang.org/x/net/html)
+https://pkg.go.dev/golang.org/x/net/html
+Parsing HTML into a node tree to extract links, title, and page text.
+
+robots.txt parser (temoto/robotstxt)
+https://github.com/temoto/robotstxt
+Interpreting site crawling rules and Crawl-delay.
+
+Reference project for feature comparison
+https://github.com/afazio1/web-crawler
+Compared project scope and archive/search features; this project uses its own Go code and a CSV archive.
+
+Example crawl target
+https://go.dev/
+Used for the documented sample crawl. Crawl respectfully and follow robots.txt.
