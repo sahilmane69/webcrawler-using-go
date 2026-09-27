@@ -24,9 +24,10 @@ type Page struct {
 }
 
 type Result struct {
-	Title  string
-	Status int
-	Links  []string
+	Title    string
+	Status   int
+	FinalURL string
+	Links    []string
 }
 
 func fetchPage(client *http.Client, pageURL, host string) (Result, error) {
@@ -46,6 +47,7 @@ func fetchPage(client *http.Client, pageURL, host string) (Result, error) {
 	defer resp.Body.Close()
 
 	result.Status = resp.StatusCode
+	result.FinalURL = resp.Request.URL.String()
 	fmt.Println("Status:", resp.Status)
 
 	if resp.StatusCode != http.StatusOK {
@@ -72,12 +74,10 @@ func fetchPage(client *http.Client, pageURL, host string) (Result, error) {
 			inTitle = true
 			continue
 		}
-
 		if token.Type == html.EndTagToken && token.Data == "title" {
 			inTitle = false
 			continue
 		}
-
 		if inTitle && token.Type == html.TextToken {
 			title.WriteString(token.Data)
 		}
@@ -138,7 +138,9 @@ func main() {
 	defer file.Close()
 
 	writer := csv.NewWriter(file)
-	if err := writer.Write([]string{"url", "title", "status", "depth"}); err != nil {
+	if err := writer.Write([]string{
+		"url", "final_url", "title", "status", "depth",
+	}); err != nil {
 		log.Fatal(err)
 	}
 
@@ -161,6 +163,7 @@ func main() {
 
 		if err := writer.Write([]string{
 			page.URL,
+			result.FinalURL,
 			result.Title,
 			strconv.Itoa(result.Status),
 			strconv.Itoa(page.Depth),

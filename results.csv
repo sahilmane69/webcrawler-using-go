@@ -1,46 +1,46 @@
-url,title,status,depth
-https://go.dev/,The Go Programming Language,200,0
-https://go.dev/solutions/case-studies,Case Studies - The Go Programming Language,200,1
-https://go.dev/solutions/use-cases,Use Cases - The Go Programming Language,200,1
-https://go.dev/security/,Security - The Go Programming Language,200,1
-https://go.dev/learn/,Get Started - The Go Programming Language,200,1
-https://go.dev/ref/spec,The Go Programming Language Specification - The Go Programming Language,200,1
-https://go.dev/doc,Documentation - The Go Programming Language,200,1
-https://go.dev/doc/devel/release,Release History - The Go Programming Language,200,1
-https://go.dev/doc/effective_go,Effective Go - The Go Programming Language,200,1
-https://go.dev/talks/,talks - The Go Programming Language,200,1
-https://go.dev/wiki/Conferences,Go Wiki: Go Conferences and Major Events - The Go Programming Language,200,1
-https://go.dev/blog,The Go Blog - The Go Programming Language,200,1
-https://go.dev/help,Help - The Go Programming Language,200,1
-https://go.dev/dl,All releases - The Go Programming Language,200,1
-https://go.dev/dl/,All releases - The Go Programming Language,200,1
-https://go.dev/solutions/,Why Go - The Go Programming Language,200,1
-https://go.dev/solutions/google/,Using Go at Google - The Go Programming Language,200,1
-https://go.dev/solutions/paypal,PayPal Taps Go to Modernize and Scale - The Go Programming Language,200,1
-https://go.dev/solutions/americanexpress,American Express Uses Go for Payments & Rewards - The Go Programming Language,200,1
-https://go.dev/solutions/mercadolibre,MercadoLibre Grows with Go - The Go Programming Language,200,1
-https://go.dev/tour/,A Tour of Go,200,1
-https://go.dev/solutions/cloud/,Go for Cloud & Network Services - The Go Programming Language,200,1
-https://go.dev/solutions/clis/,Command-line Interfaces (CLIs) - The Go Programming Language,200,1
-https://go.dev/pkg/net/http/,http package - net/http - Go Packages,200,1
-https://go.dev/pkg/html/template/,template package - html/template - Go Packages,200,1
-https://go.dev/pkg/database/sql/,sql package - database/sql - Go Packages,200,1
-https://go.dev/solutions/webdev/,Go for Web Development - The Go Programming Language,200,1
-https://go.dev/solutions/devops/,Development Operations & Site Reliability Engineering - The Go Programming Language,200,1
-https://go.dev/doc/install/,Download and install - The Go Programming Language,200,1
-https://go.dev/learn,Get Started - The Go Programming Language,200,1
-https://go.dev/play,Go Playground - The Go Programming Language,200,1
-https://go.dev/help/,Help - The Go Programming Language,200,1
-https://go.dev/pkg/,Standard library - Go Packages,200,1
-https://go.dev/project,The Go Project - The Go Programming Language,200,1
-https://go.dev/blog/,The Go Blog - The Go Programming Language,200,1
-https://go.dev/brand,Brand and Trademark Usage Guidelines - The Go Programming Language,200,1
-https://go.dev/conduct,Go Community Code of Conduct - The Go Programming Language,200,1
-https://go.dev/wiki/,Go Wiki: Home - The Go Programming Language,200,1
-https://go.dev/copyright,Copyright - The Go Programming Language,200,1
-https://go.dev/tos,Terms of Service - The Go Programming Language,200,1
-https://go.dev/s/website-issue,Sign in to GitHub · GitHub,200,1
-https://go.dev/solutions/cloud,Go for Cloud & Network Services - The Go Programming Language,200,2
-https://go.dev/solutions/clis,Command-line Interfaces (CLIs) - The Go Programming Language,200,2
-https://go.dev/solutions/webdev,Go for Web Development - The Go Programming Language,200,2
-https://go.dev/solutions/devops,Development Operations & Site Reliability Engineering - The Go Programming Language,200,2
+url,final_url,title,status,depth
+https://go.dev/,https://go.dev/,The Go Programming Language,200,0
+https://go.dev/solutions/case-studies,https://go.dev/solutions/case-studies,Case Studies - The Go Programming Language,200,1
+https://go.dev/solutions/use-cases,https://go.dev/solutions/use-cases,Use Cases - The Go Programming Language,200,1
+https://go.dev/security/,https://go.dev/doc/security/,Security - The Go Programming Language,200,1
+https://go.dev/learn/,https://go.dev/learn/,Get Started - The Go Programming Language,200,1
+https://go.dev/ref/spec,https://go.dev/ref/spec,The Go Programming Language Specification - The Go Programming Language,200,1
+https://go.dev/doc,https://go.dev/doc/,Documentation - The Go Programming Language,200,1
+https://go.dev/doc/devel/release,https://go.dev/doc/devel/release,Release History - The Go Programming Language,200,1
+https://go.dev/doc/effective_go,https://go.dev/doc/effective_go,Effective Go - The Go Programming Language,200,1
+https://go.dev/talks/,https://go.dev/talks/,talks - The Go Programming Language,200,1
+https://go.dev/wiki/Conferences,https://go.dev/wiki/Conferences,Go Wiki: Go Conferences and Major Events - The Go Programming Language,200,1
+https://go.dev/blog,https://go.dev/blog/,The Go Blog - The Go Programming Language,200,1
+https://go.dev/help,https://go.dev/help,Help - The Go Programming Language,200,1
+https://go.dev/dl,https://go.dev/dl/,All releases - The Go Programming Language,200,1
+https://go.dev/dl/,https://go.dev/dl/,All releases - The Go Programming Language,200,1
+https://go.dev/solutions/,https://go.dev/solutions/,Why Go - The Go Programming Language,200,1
+https://go.dev/solutions/google/,https://go.dev/solutions/google/,Using Go at Google - The Go Programming Language,200,1
+https://go.dev/solutions/paypal,https://go.dev/solutions/paypal,PayPal Taps Go to Modernize and Scale - The Go Programming Language,200,1
+https://go.dev/solutions/americanexpress,https://go.dev/solutions/americanexpress,American Express Uses Go for Payments & Rewards - The Go Programming Language,200,1
+https://go.dev/solutions/mercadolibre,https://go.dev/solutions/mercadolibre,MercadoLibre Grows with Go - The Go Programming Language,200,1
+https://go.dev/tour/,https://go.dev/tour/,A Tour of Go,200,1
+https://go.dev/solutions/cloud/,https://go.dev/solutions/cloud,Go for Cloud & Network Services - The Go Programming Language,200,1
+https://go.dev/solutions/clis/,https://go.dev/solutions/clis,Command-line Interfaces (CLIs) - The Go Programming Language,200,1
+https://go.dev/pkg/net/http/,https://pkg.go.dev/net/http,http package - net/http - Go Packages,200,1
+https://go.dev/pkg/html/template/,https://pkg.go.dev/html/template,template package - html/template - Go Packages,200,1
+https://go.dev/pkg/database/sql/,https://pkg.go.dev/database/sql,sql package - database/sql - Go Packages,200,1
+https://go.dev/solutions/webdev/,https://go.dev/solutions/webdev,Go for Web Development - The Go Programming Language,200,1
+https://go.dev/solutions/devops/,https://go.dev/solutions/devops,Development Operations & Site Reliability Engineering - The Go Programming Language,200,1
+https://go.dev/doc/install/,https://go.dev/doc/install,Download and install - The Go Programming Language,200,1
+https://go.dev/learn,https://go.dev/learn/,Get Started - The Go Programming Language,200,1
+https://go.dev/play,https://go.dev/play/,Go Playground - The Go Programming Language,200,1
+https://go.dev/help/,https://go.dev/help,Help - The Go Programming Language,200,1
+https://go.dev/pkg/,https://pkg.go.dev/std,Standard library - Go Packages,200,1
+https://go.dev/project,https://go.dev/project,The Go Project - The Go Programming Language,200,1
+https://go.dev/blog/,https://go.dev/blog/,The Go Blog - The Go Programming Language,200,1
+https://go.dev/brand,https://go.dev/brand,Brand and Trademark Usage Guidelines - The Go Programming Language,200,1
+https://go.dev/conduct,https://go.dev/conduct,Go Community Code of Conduct - The Go Programming Language,200,1
+https://go.dev/wiki/,https://go.dev/wiki/,Go Wiki: Home - The Go Programming Language,200,1
+https://go.dev/copyright,https://go.dev/copyright,Copyright - The Go Programming Language,200,1
+https://go.dev/tos,https://go.dev/tos,Terms of Service - The Go Programming Language,200,1
+https://go.dev/s/website-issue,https://github.com/login?return_to=https%3A%2F%2Fgithub.com%2Fgolang%2Fgo%2Fissues%2Fnew%3Ftitle%3Dx%252Fwebsite%3A%26body%3D%253C%2521--%250APlease%2Banswer%2Bthese%2Bquestions%2Bbefore%2Bsubmitting%2Byour%2Bissue.%2BThanks%2521%250A--%253E%250A%2B%250A%2523%2523%2523%2BWhat%2Bis%2Bthe%2BURL%2Bof%2Bthe%2Bpage%2Bwith%2Bthe%2Bissue%253F%250A%2B%250A%2B%250A%2B%250A%2523%2523%2523%2BWhat%2Bis%2Byour%2Buser%2Bagent%253F%250A%2B%250A%253C%2521--%2B%250AYou%2Bcan%2Bfind%2Byour%2Buser%2Bagent%2Bhere%253A%250Ahttps%253A%252F%252Fwww.whatismybrowser.com%252Fdetect%252Fwhat-is-my-user-agent%250A--%253E%250A%2B%250A%2B%250A%2B%250A%2523%2523%2523%2BScreenshot%250A%2B%250A%253C%2521--%250APlease%2Bpaste%2Ba%2Bscreenshot%2Bof%2Bthe%2Bpage.%250A--%253E%250A%2B%250A%2B%250A%2B%250A%2523%2523%2523%2BWhat%2Bdid%2Byou%2Bdo%253F%250A%2B%250A%253C%2521--%250AIf%2Bpossible%252C%2Bprovide%2Ba%2Brecipe%2Bfor%2Breproducing%2Bthe%2Berror.%250A--%253E%250A%2B%250A%2B%250A%2B%250A%2523%2523%2523%2BWhat%2Bdid%2Byou%2Bexpect%2Bto%2Bsee%253F%250A%2B%250A%2B%250A%2B%250A%2523%2523%2523%2BWhat%2Bdid%2Byou%2Bsee%2Binstead%253F%250A%250A%250A%250A,Sign in to GitHub · GitHub,200,1
+https://go.dev/solutions/cloud,https://go.dev/solutions/cloud,Go for Cloud & Network Services - The Go Programming Language,200,2
+https://go.dev/solutions/clis,https://go.dev/solutions/clis,Command-line Interfaces (CLIs) - The Go Programming Language,200,2
+https://go.dev/solutions/webdev,https://go.dev/solutions/webdev,Go for Web Development - The Go Programming Language,200,2
+https://go.dev/solutions/devops,https://go.dev/solutions/devops,Development Operations & Site Reliability Engineering - The Go Programming Language,200,2
