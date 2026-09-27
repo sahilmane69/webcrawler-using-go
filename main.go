@@ -15,8 +15,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/temoto/robotstxt"
 	"golang.org/x/net/html"
 )
+
+const crawlerAgent = "SahilCrawler"
 
 type Page struct {
 	URL   string
@@ -39,6 +42,7 @@ func fetchPage(client *http.Client, pageURL, host string) (Result, error) {
 	if err != nil {
 		return result, err
 	}
+	req.Header.Set("User-Agent", crawlerAgent)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -110,6 +114,42 @@ func fetchPage(client *http.Client, pageURL, host string) (Result, error) {
 	return result, nil
 }
 
+func loadRobots(client *http.Client, root *url.URL) (*robotstxt.RobotsData, error) {
+	robotsURL := root.ResolveReference(&url.URL{Path: "/robots.txt"})
+	req, err := http.NewRequest(http.MethodGet, robotsURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", crawlerAgent)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > 1<<20 {
+		return nil, fmt.Errorf("robots.txt exceeds 1 MiB")
+	}
+
+	return robotstxt.FromStatusAndBytes(resp.StatusCode, body)
+}
+
+func allowedByRobots(robots *robotstxt.RobotsData, pageURL *url.URL) bool {
+	path := pageURL.EscapedPath()
+	if path == "" {
+		path = "/"
+	}
+	if pageURL.RawQuery != "" {
+		path += "?" + pageURL.RawQuery
+	}
+	return robots.TestAgent(path, crawlerAgent)
+}
+
 func main() {
 	startURL := flag.String("url", "https://go.dev/", "starting URL")
 	maxPages := flag.Int("max", 5, "maximum pages to visit")
@@ -144,14 +184,42 @@ func main() {
 		log.Fatal(err)
 	}
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	var robots *robotstxt.RobotsData
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if req.URL.Hostname() != parsedURL.Hostname() ||
+				(robots != nil && !allowedByRobots(robots, req.URL)) {
+				return http.ErrUseLastResponse
+			}
+			return nil
+		},
+	}
+
+	robots, err = loadRobots(client, parsedURL)
+	if err != nil {
+		log.Fatal("could not check robots.txt: ", err)
+	}
+
 	queue := []Page{{URL: parsedURL.String(), Depth: 0}}
 	seen := map[string]bool{queue[0].URL: true}
+	fetchedFinal := make(map[string]bool)
 	visited := 0
 
 	for len(queue) > 0 && visited < *maxPages {
 		page := queue[0]
 		queue = queue[1:]
+
+		if fetchedFinal[page.URL] {
+			fmt.Println("Skipping already fetched:", page.URL)
+			continue
+		}
+
+		pageURL, err := url.Parse(page.URL)
+		if err != nil || !allowedByRobots(robots, pageURL) {
+			fmt.Println("Skipping disallowed URL:", page.URL)
+			continue
+		}
 
 		fmt.Printf("\nVisiting (depth %d): %s\n", page.Depth, page.URL)
 		visited++
@@ -170,11 +238,13 @@ func main() {
 		}); err != nil {
 			log.Fatal(err)
 		}
+		time.Sleep(time.Second)
 
 		if err != nil {
 			continue
 		}
 
+		fetchedFinal[result.FinalURL] = true
 		fmt.Println("Links found:", len(result.Links))
 
 		newLinks := 0
@@ -192,7 +262,6 @@ func main() {
 		}
 
 		fmt.Printf("New links: %d | Pending: %d\n", newLinks, len(queue))
-		time.Sleep(time.Second)
 	}
 
 	writer.Flush()
