@@ -3,12 +3,16 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/csv"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/net/html"
@@ -19,45 +23,70 @@ type Page struct {
 	Depth int
 }
 
-func fetchLinks(client *http.Client, pageURL string) ([]string, error) {
+type Result struct {
+	Title  string
+	Status int
+	Links  []string
+}
+
+func fetchPage(client *http.Client, pageURL string) (Result, error) {
+	var result Result
+
 	req, err := http.NewRequestWithContext(
 		context.Background(), http.MethodGet, pageURL, nil,
 	)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 	defer resp.Body.Close()
 
+	result.Status = resp.StatusCode
 	fmt.Println("Status:", resp.Status)
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("could not fetch %s", pageURL)
+		return result, fmt.Errorf("could not fetch %s", pageURL)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 
-	var links []string
 	z := html.NewTokenizer(bytes.NewReader(body))
+	inTitle := false
+	var title strings.Builder
 
 	for {
 		if z.Next() == html.ErrorToken {
 			break
 		}
 
-		tag := z.Token()
-		if tag.Type != html.StartTagToken || tag.Data != "a" {
+		token := z.Token()
+
+		if token.Type == html.StartTagToken && token.Data == "title" {
+			inTitle = true
 			continue
 		}
 
-		for _, attr := range tag.Attr {
+		if token.Type == html.EndTagToken && token.Data == "title" {
+			inTitle = false
+			continue
+		}
+
+		if inTitle && token.Type == html.TextToken {
+			title.WriteString(token.Data)
+		}
+
+		if token.Type != html.StartTagToken || token.Data != "a" {
+			continue
+		}
+
+		for _, attr := range token.Attr {
 			if attr.Key != "href" {
 				continue
 			}
@@ -72,17 +101,18 @@ func fetchLinks(client *http.Client, pageURL string) ([]string, error) {
 
 			if fullURL.Scheme == "https" &&
 				fullURL.Hostname() == resp.Request.URL.Hostname() {
-				links = append(links, fullURL.String())
+				result.Links = append(result.Links, fullURL.String())
 			}
 		}
 	}
 
-	return links, nil
+	result.Title = strings.Join(strings.Fields(title.String()), " ")
+	return result, nil
 }
 
 func main() {
 	maxPages := flag.Int("max", 5, "maximum pages to visit")
-	maxDepth := flag.Int("depth", 1, "maximum link depth from the starting page")
+	maxDepth := flag.Int("depth", 1, "maximum link depth")
 	flag.Parse()
 
 	if *maxPages < 1 {
@@ -90,6 +120,17 @@ func main() {
 	}
 	if *maxDepth < 0 {
 		log.Fatal("depth cannot be negative")
+	}
+
+	file, err := os.Create("results.csv")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	if err := writer.Write([]string{"url", "title", "status", "depth"}); err != nil {
+		log.Fatal(err)
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -104,17 +145,29 @@ func main() {
 		fmt.Printf("\nVisiting (depth %d): %s\n", page.Depth, page.URL)
 		visited++
 
-		links, err := fetchLinks(client, page.URL)
+		result, err := fetchPage(client, page.URL)
 		if err != nil {
 			log.Println(err)
+		}
+
+		if err := writer.Write([]string{
+			page.URL,
+			result.Title,
+			strconv.Itoa(result.Status),
+			strconv.Itoa(page.Depth),
+		}); err != nil {
+			log.Fatal(err)
+		}
+
+		if err != nil {
 			continue
 		}
 
-		fmt.Println("Links found:", len(links))
+		fmt.Println("Links found:", len(result.Links))
 
 		newLinks := 0
 		if page.Depth < *maxDepth {
-			for _, link := range links {
+			for _, link := range result.Links {
 				if !seen[link] {
 					seen[link] = true
 					queue = append(queue, Page{
@@ -130,5 +183,11 @@ func main() {
 		time.Sleep(time.Second)
 	}
 
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		log.Fatal(err)
+	}
+
 	fmt.Println("\nTotal pages visited:", visited)
+	fmt.Println("Results saved to results.csv")
 }
