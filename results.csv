@@ -1,6 +1,21 @@
-url,final_url,title,status,depth
-https://go.dev/,https://go.dev/,The Go Programming Language,200,0
-https://go.dev/solutions/case-studies,https://go.dev/solutions/case-studies,Case Studies - The Go Programming Language,200,1
-https://go.dev/solutions/use-cases,https://go.dev/solutions/use-cases,Use Cases - The Go Programming Language,200,1
-https://go.dev/security/,https://go.dev/doc/security/,Security - The Go Programming Language,200,1
-https://go.dev/learn/,https://go.dev/learn/,Get Started - The Go Programming Language,200,1
+url,final_url,title,content,status,depth
+https://go.dev/,https://go.dev/,The Go Programming Language,Skip to Main Content Why Go arrow_drop_down Press Enter to activate/deactivate dropdown Case Studies Common problems companies solve with Go Use Cases Stories about how and why companies use Go Security How Go can help keep you secure by default Learn Press Enter to activate/deactivate dropdown Docs arrow_drop_down Press Enter to activate/deactivate dropdown Go Spec The official Go language specification Go User Manual A complete introduction to building software with Go Standard library Referen,200,0
+https://go.dev/security/,https://go.dev/doc/security/,Security - The Go Programming Language,Skip to Main Content Why Go arrow_drop_down Press Enter to activate/deactivate dropdown Case Studies Common problems companies solve with Go Use Cases Stories about how and why companies use Go Security How Go can help keep you secure by default Learn Press Enter to activate/deactivate dropdown Docs arrow_drop_down Press Enter to activate/deactivate dropdown Go Spec The official Go language specification Go User Manual A complete introduction to building software with Go Standard library Referen,200,1
+https://go.dev/solutions/use-cases,https://go.dev/solutions/use-cases,Use Cases - The Go Programming Language,Skip to Main Content Why Go arrow_drop_down Press Enter to activate/deactivate dropdown Case Studies Common problems companies solve with Go Use Cases Stories about how and why companies use Go Security How Go can help keep you secure by default Learn Press Enter to activate/deactivate dropdown Docs arrow_drop_down Press Enter to activate/deactivate dropdown Go Spec The official Go language specification Go User Manual A complete introduction to building software with Go Standard library Referen,200,1
+https://go.dev/solutions/case-studies,https://go.dev/solutions/case-studies,Case Studies - The Go Programming Language,Skip to Main Content Why Go arrow_drop_down Press Enter to activate/deactivate dropdown Case Studies Common problems companies solve with Go Use Cases Stories about how and why companies use Go Security How Go can help keep you secure by default Learn Press Enter to activate/deactivate dropdown Docs arrow_drop_down Press Enter to activate/deactivate dropdown Go Spec The official Go language specification Go User Manual A complete introduction to building software with Go Standard library Referen,200,1
+https://go.dev/learn/,https://go.dev/learn/,Get Started - The Go Programming Language,Skip to Main Content Why Go arrow_drop_down Press Enter to activate/deactivate dropdown Case Studies Common problems companies solve with Go Use Cases Stories about how and why companies use Go Security How Go can help keep you secure by default Learn Press Enter to activate/deactivate dropdown Docs arrow_drop_down Press Enter to activate/deactivate dropdown Go Spec The official Go language specification Go User Manual A complete introduction to building software with Go Standard library Referen,200,1
+https://go.dev/ref/spec,https://go.dev/ref/spec,,,200,1
+https://go.dev/doc,,,,0,1
+https://go.dev/doc/devel/release,,,,0,1
+https://go.dev/doc/effective_go,,,,0,1
+https://go.dev/talks/,,,,0,1
+https://go.dev/wiki/Conferences,,,,0,1
+https://go.dev/blog,,,,0,1
+https://go.dev/help,,,,0,1
+https://go.dev/dl,,,,0,1
+https://go.dev/dl/,,,,0,1
+https://go.dev/solutions/,,,,0,1
+https://go.dev/solutions/google/,,,,0,1
+https://go.dev/solutions/paypal,,,,0,1
+https://go.dev/solutions/americanexpress,,,,0,1
+https://go.dev/solutions/mercadolibre,,,,0,1

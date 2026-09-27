@@ -8,12 +8,15 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/temoto/robotstxt"
 	"golang.org/x/net/html"
@@ -27,10 +30,27 @@ type Page struct {
 }
 
 type Result struct {
-	Title    string
-	Status   int
-	FinalURL string
-	Links    []string
+	Title       string
+	Content     string
+	Status      int
+	FinalURL    string
+	ContentType string
+	IsHTML      bool
+	Links       []string
+}
+
+type CrawlResult struct {
+	Page   Page
+	Result Result
+	Err    error
+}
+
+func worker(client *http.Client, host string, ticks <-chan time.Time, jobs <-chan Page, results chan<- CrawlResult) {
+	for page := range jobs {
+		<-ticks
+		result, err := fetchPage(client, page.URL, host)
+		results <- CrawlResult{Page: page, Result: result, Err: err}
+	}
 }
 
 func fetchPage(client *http.Client, pageURL, host string) (Result, error) {
@@ -52,11 +72,24 @@ func fetchPage(client *http.Client, pageURL, host string) (Result, error) {
 
 	result.Status = resp.StatusCode
 	result.FinalURL = resp.Request.URL.String()
-	fmt.Println("Status:", resp.Status)
 
 	if resp.StatusCode != http.StatusOK {
 		return result, fmt.Errorf("could not fetch %s", pageURL)
 	}
+
+	if header := resp.Header.Get("Content-Type"); header != "" {
+		result.ContentType, _, err = mime.ParseMediaType(header)
+		if err != nil {
+			return result, err
+		}
+	} else {
+		result.ContentType = "text/html"
+	}
+
+	if result.ContentType != "text/html" && result.ContentType != "application/xhtml+xml" {
+		return result, nil
+	}
+	result.IsHTML = true
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
@@ -65,7 +98,13 @@ func fetchPage(client *http.Client, pageURL, host string) (Result, error) {
 
 	z := html.NewTokenizer(bytes.NewReader(body))
 	inTitle := false
+	inBody := false
+	skipContent := 0
+	inMain := 0
+
 	var title strings.Builder
+	var bodyContent strings.Builder
+	var mainContent strings.Builder
 
 	for {
 		if z.Next() == html.ErrorToken {
@@ -78,12 +117,43 @@ func fetchPage(client *http.Client, pageURL, host string) (Result, error) {
 			inTitle = true
 			continue
 		}
+		if token.Type == html.StartTagToken && token.Data == "body" {
+			inBody = true
+		}
+		if token.Type == html.StartTagToken && token.Data == "main" {
+			inMain++
+		}
+		if token.Type == html.EndTagToken && token.Data == "main" && inMain > 0 {
+			inMain--
+		}
+		if token.Type == html.EndTagToken && token.Data == "body" {
+			inBody = false
+		}
+
+		if token.Type == html.StartTagToken && inBody &&
+			(token.Data == "script" || token.Data == "style" || token.Data == "noscript" ||
+				token.Data == "nav" || token.Data == "header" || token.Data == "footer" || token.Data == "aside") {
+			skipContent++
+		}
+		if token.Type == html.EndTagToken && skipContent > 0 &&
+			(token.Data == "script" || token.Data == "style" || token.Data == "noscript" ||
+				token.Data == "nav" || token.Data == "header" || token.Data == "footer" || token.Data == "aside") {
+			skipContent--
+		}
+
 		if token.Type == html.EndTagToken && token.Data == "title" {
 			inTitle = false
 			continue
 		}
 		if inTitle && token.Type == html.TextToken {
 			title.WriteString(token.Data)
+		}
+
+		if inBody && skipContent == 0 && token.Type == html.TextToken {
+			appendExcerpt(&bodyContent, token.Data)
+			if inMain > 0 {
+				appendExcerpt(&mainContent, token.Data)
+			}
 		}
 
 		if token.Type != html.StartTagToken || token.Data != "a" {
@@ -111,7 +181,37 @@ func fetchPage(client *http.Client, pageURL, host string) (Result, error) {
 	}
 
 	result.Title = strings.Join(strings.Fields(title.String()), " ")
+	result.Content = bodyContent.String()
+	if mainContent.Len() > 0 {
+		result.Content = mainContent.String()
+	}
+
 	return result, nil
+}
+
+func appendExcerpt(dst *strings.Builder, raw string) {
+	length := utf8.RuneCountInString(dst.String())
+	if length >= 500 {
+		return
+	}
+
+	words := strings.Join(strings.Fields(raw), " ")
+	if words == "" {
+		return
+	}
+
+	if dst.Len() > 0 {
+		dst.WriteByte(' ')
+		length++
+	}
+
+	for _, r := range words {
+		if length >= 500 {
+			break
+		}
+		dst.WriteRune(r)
+		length++
+	}
 }
 
 func loadRobots(client *http.Client, root *url.URL) (*robotstxt.RobotsData, error) {
@@ -150,17 +250,79 @@ func allowedByRobots(robots *robotstxt.RobotsData, pageURL *url.URL) bool {
 	return robots.TestAgent(path, crawlerAgent)
 }
 
+func searchArchive(path, query string, out io.Writer) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	header, err := reader.Read()
+	if err != nil {
+		return err
+	}
+
+	columns := make(map[string]int)
+	for i, name := range header {
+		columns[name] = i
+	}
+
+	for _, name := range []string{"url", "title", "content"} {
+		if _, ok := columns[name]; !ok {
+			return fmt.Errorf("archive is missing %q column", name)
+		}
+	}
+
+	query = strings.ToLower(query)
+	matches := 0
+
+	for {
+		row, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		title := row[columns["title"]]
+		content := row[columns["content"]]
+
+		if strings.Contains(strings.ToLower(title+" "+content), query) {
+			matches++
+			fmt.Fprintf(out, "%s\n%s\n%s\n\n", title, row[columns["url"]], content)
+		}
+	}
+
+	fmt.Fprintf(out, "Matches: %d\n", matches)
+	return nil
+}
+
 func main() {
 	startURL := flag.String("url", "https://go.dev/", "starting URL")
 	maxPages := flag.Int("max", 5, "maximum pages to visit")
 	maxDepth := flag.Int("depth", 1, "maximum link depth")
+	workerCount := flag.Int("workers", 3, "maximum concurrent workers")
+	output := flag.String("output", "results.csv", "CSV archive path")
+	search := flag.String("search", "", "search the saved archive instead of crawling")
 	flag.Parse()
+
+	if *search != "" {
+		if err := searchArchive(*output, *search, os.Stdout); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 
 	if *maxPages < 1 {
 		log.Fatal("max must be at least 1")
 	}
 	if *maxDepth < 0 {
 		log.Fatal("depth cannot be negative")
+	}
+	if *workerCount < 1 {
+		log.Fatal("workers must be at least 1")
 	}
 
 	parsedURL, err := url.Parse(*startURL)
@@ -171,7 +333,7 @@ func main() {
 	}
 	parsedURL.Fragment = ""
 
-	file, err := os.Create("results.csv")
+	file, err := os.Create(*output)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -179,14 +341,15 @@ func main() {
 
 	writer := csv.NewWriter(file)
 	if err := writer.Write([]string{
-		"url", "final_url", "title", "status", "depth",
+		"url", "final_url", "title", "content", "status", "depth",
 	}); err != nil {
 		log.Fatal(err)
 	}
 
 	var robots *robotstxt.RobotsData
+
 	client := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 30 * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if req.URL.Hostname() != parsedURL.Hostname() ||
 				(robots != nil && !allowedByRobots(robots, req.URL)) {
@@ -201,74 +364,136 @@ func main() {
 		log.Fatal("could not check robots.txt: ", err)
 	}
 
+	delay := time.Second
+	if group := robots.FindGroup(crawlerAgent); group != nil && group.CrawlDelay > delay {
+		delay = group.CrawlDelay
+	}
+
+	ticker := time.NewTicker(delay)
+	defer ticker.Stop()
+
+	jobs := make(chan Page)
+	results := make(chan CrawlResult)
+
+	var workers sync.WaitGroup
+	for i := 0; i < *workerCount; i++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			worker(client, parsedURL.Hostname(), ticker.C, jobs, results)
+		}()
+	}
+
 	queue := []Page{{URL: parsedURL.String(), Depth: 0}}
 	seen := map[string]bool{queue[0].URL: true}
 	fetchedFinal := make(map[string]bool)
+
 	visited := 0
+	inFlight := 0
+	htmlPages := 0
+	nonHTMLPages := 0
+	started := time.Now()
 
-	for len(queue) > 0 && visited < *maxPages {
-		page := queue[0]
-		queue = queue[1:]
+	for (len(queue) > 0 && visited < *maxPages) || inFlight > 0 {
+		var next Page
+		var jobCh chan Page
 
-		if fetchedFinal[page.URL] {
-			fmt.Println("Skipping already fetched:", page.URL)
-			continue
+		if len(queue) > 0 && visited < *maxPages {
+			next = queue[0]
+
+			if fetchedFinal[next.URL] {
+				queue = queue[1:]
+				fmt.Println("Skipping already fetched:", next.URL)
+				continue
+			}
+
+			pageURL, err := url.Parse(next.URL)
+			if err != nil || !allowedByRobots(robots, pageURL) {
+				queue = queue[1:]
+				fmt.Println("Skipping disallowed URL:", next.URL)
+				continue
+			}
+
+			jobCh = jobs
 		}
 
-		pageURL, err := url.Parse(page.URL)
-		if err != nil || !allowedByRobots(robots, pageURL) {
-			fmt.Println("Skipping disallowed URL:", page.URL)
-			continue
-		}
+		select {
+		case jobCh <- next:
+			queue = queue[1:]
+			visited++
+			inFlight++
+			fmt.Printf("\nVisiting (depth %d): %s\n", next.Depth, next.URL)
 
-		fmt.Printf("\nVisiting (depth %d): %s\n", page.Depth, page.URL)
-		visited++
+		case done := <-results:
+			inFlight--
+			page := done.Page
+			result := done.Result
 
-		result, err := fetchPage(client, page.URL, parsedURL.Hostname())
-		if err != nil {
-			log.Println(err)
-		}
+			fmt.Printf("Status for %s: %d\n", page.URL, result.Status)
+			if done.Err != nil {
+				log.Println(done.Err)
+			}
 
-		if err := writer.Write([]string{
-			page.URL,
-			result.FinalURL,
-			result.Title,
-			strconv.Itoa(result.Status),
-			strconv.Itoa(page.Depth),
-		}); err != nil {
-			log.Fatal(err)
-		}
-		time.Sleep(time.Second)
+			if err := writer.Write([]string{
+				page.URL,
+				result.FinalURL,
+				result.Title,
+				result.Content,
+				strconv.Itoa(result.Status),
+				strconv.Itoa(page.Depth),
+			}); err != nil {
+				log.Fatal(err)
+			}
 
-		if err != nil {
-			continue
-		}
+			if done.Err != nil {
+				continue
+			}
 
-		fetchedFinal[result.FinalURL] = true
-		fmt.Println("Links found:", len(result.Links))
+			fetchedFinal[result.FinalURL] = true
 
-		newLinks := 0
-		if page.Depth < *maxDepth {
-			for _, link := range result.Links {
-				if !seen[link] {
-					seen[link] = true
-					queue = append(queue, Page{
-						URL:   link,
-						Depth: page.Depth + 1,
-					})
-					newLinks++
+			if !result.IsHTML {
+				nonHTMLPages++
+				fmt.Printf("Skipping non-HTML response (%s): %s\n", result.ContentType, page.URL)
+				continue
+			}
+
+			htmlPages++
+			fmt.Println("Links found:", len(result.Links))
+
+			newLinks := 0
+			if page.Depth < *maxDepth {
+				for _, link := range result.Links {
+					if !seen[link] {
+						seen[link] = true
+						queue = append(queue, Page{
+							URL:   link,
+							Depth: page.Depth + 1,
+						})
+						newLinks++
+					}
 				}
 			}
-		}
 
-		fmt.Printf("New links: %d | Pending: %d\n", newLinks, len(queue))
+			fmt.Printf("New links: %d | Pending: %d\n", newLinks, len(queue))
+		}
 	}
+
+	close(jobs)
+	workers.Wait()
 
 	writer.Flush()
 	if err := writer.Error(); err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("\nTotal pages visited:", visited)
-	fmt.Println("Results saved to results.csv")
+	elapsed := time.Since(started)
+	fmt.Println("\nPages attempted:", visited)
+	fmt.Println("HTML pages:", htmlPages)
+	fmt.Println("Non-HTML pages:", nonHTMLPages)
+	fmt.Println("Failed requests:", visited-htmlPages-nonHTMLPages)
+	fmt.Printf("Elapsed: %s | Rate: %.2f pages/sec\n",
+		elapsed.Round(time.Millisecond),
+		float64(visited)/elapsed.Seconds(),
+	)
+	fmt.Println("Results saved to", *output)
 }

@@ -1,20 +1,59 @@
-# Web Crawler Using Go
+# Go Web Crawler
 
-A learning project where I’m building a web crawler from scratch in Go and documenting what I learn along the way.
+A command-line crawler written in Go. It explores one hostname in breadth-first order, respects `robots.txt`, extracts page titles and short text excerpts, and saves a searchable CSV archive.
 
-## Current progress
+## Features
 
-- Built an HTTP client that sends a GET request and decodes a JSON response.
-- Learning `net/http`, `net/url`, and how web pages are fetched.
+- Configurable starting URL, page limit, depth, worker count, and CSV output path
+- Concurrent fetching with a bounded worker pool and a shared request interval
+- Same-host link discovery, including relative links
+- `robots.txt` checks and a custom `SahilCrawler` user agent
+- External redirect blocking and duplicate URL tracking
+- HTML title and first 500 characters of body text, excluding script, style, and noscript tags
+- CSV archive search and a summary of crawl speed and outcomes
 
-## Goal
+## Setup
 
-Start from a URL, fetch the page, discover its links, and crawl new pages while avoiding duplicates.
-
-## Run
+In the Go module containing `main.go`, install the dependencies:
 
 ```bash
-go run main.go
+go get golang.org/x/net/html github.com/temoto/robotstxt
 ```
 
-The current program is an HTTP experiment. The crawler is under development.
+## Crawl
+
+```bash
+go run main.go -url https://go.dev/ -max 20 -depth 2 -workers 3
+```
+
+The defaults are `https://go.dev/`, 5 pages, depth 1, 3 workers, and `results.csv`. Use `-output archive.csv` to choose another file. A run replaces the selected CSV file.
+
+The starting page has depth 0. Its direct links have depth 1. `-max` limits attempted page fetches, including HTTP failures and non-HTML responses. Requests start at least one second apart, or at the longer `Crawl-delay` specified for the crawler's user agent. Concurrent workers can overlap slow responses, but the shared interval limits request starts.
+
+The CSV columns are `url`, `final_url`, `title`, `content`, `status`, and `depth`. A blocked external redirect is recorded with its redirect status and without the external page's title. A URL disallowed by `robots.txt` is skipped without a CSV row.
+
+## Search the archive
+
+```bash
+go run main.go -search security
+go run main.go -output archive.csv -search "cloud services"
+```
+
+Search is case-insensitive and matches a substring in the saved title or content. It reads the existing CSV and does not start another crawl.
+
+## Verify
+
+```bash
+go test ./...
+go run -race main.go -url https://go.dev/ -max 5 -depth 1 -workers 3
+```
+
+The tests cover HTML extraction, relative links, non-HTML responses, `robots.txt` rules, and archive search.
+
+## How it works
+
+The main goroutine owns the queue, duplicate maps, CSV writer, and page counter. It sends allowed URLs to workers. Each worker waits for the shared rate tick, fetches a page, and sends its result back. The main goroutine records the result and queues newly discovered links. The crawler follows redirects within the starting hostname only.
+
+## Current scope
+
+This is a local, single-host crawler. The archive uses CSV and a simple substring search; it does not use a database or full-text index. A 1 MiB response limit bounds HTML parsing, and content excerpts are limited to 500 characters. Equivalent URLs can still be fetched simultaneously if both are dispatched before either redirect completes. A larger crawl and performance benchmark have not yet been verified.
