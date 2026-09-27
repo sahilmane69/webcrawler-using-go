@@ -13,34 +13,34 @@ import (
 	"golang.org/x/net/html"
 )
 
-func main() {
-	client := &http.Client{Timeout: 10 * time.Second}
-
+func fetchLinks(client *http.Client, pageURL string) ([]string, error) {
 	req, err := http.NewRequestWithContext(
-		context.Background(),
-		http.MethodGet,
-		"https://example.com",
-		nil,
+		context.Background(), http.MethodGet, pageURL, nil,
 	)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Fatal(err)
+	fmt.Println("Status:", resp.Status)
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("could not fetch %s", pageURL)
 	}
 
-	fmt.Println("Status:", resp.Status)
-	fmt.Println("Content-Type:", resp.Header.Get("Content-Type"))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
 
+	var links []string
 	z := html.NewTokenizer(bytes.NewReader(body))
+
 	for {
 		if z.Next() == html.ErrorToken {
 			break
@@ -62,12 +62,51 @@ func main() {
 			}
 
 			fullURL := resp.Request.URL.ResolveReference(link)
-			fmt.Println("Link:", fullURL)
+			fullURL.Fragment = ""
+
+			if fullURL.Scheme == "https" &&
+				fullURL.Hostname() == resp.Request.URL.Hostname() {
+				links = append(links, fullURL.String())
+			}
 		}
 	}
 
-	if len(body) > 200 {
-		body = body[:200]
+	return links, nil
+}
+
+func main() {
+	client := &http.Client{Timeout: 10 * time.Second}
+	queue := []string{"https://go.dev/"}
+	seen := map[string]bool{queue[0]: true}
+	visited := 0
+
+	for len(queue) > 0 && visited < 5 {
+		page := queue[0]
+		queue = queue[1:]
+
+		fmt.Println("\nVisiting:", page)
+		visited++
+
+		links, err := fetchLinks(client, page)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+
+		fmt.Println("Links found:", len(links))
+
+		newLinks := 0
+		for _, link := range links {
+			if !seen[link] {
+				seen[link] = true
+				queue = append(queue, link)
+				newLinks++
+			}
+		}
+
+		fmt.Printf("New links: %d | Pending: %d\n", newLinks, len(queue))
+		time.Sleep(time.Second)
 	}
-	fmt.Println("HTML:", string(body))
+
+	fmt.Println("\nTotal pages visited:", visited)
 }
