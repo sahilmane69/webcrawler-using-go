@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +13,11 @@ import (
 
 	"golang.org/x/net/html"
 )
+
+type Page struct {
+	URL   string
+	Depth int
+}
 
 func fetchLinks(client *http.Client, pageURL string) ([]string, error) {
 	req, err := http.NewRequestWithContext(
@@ -75,19 +81,30 @@ func fetchLinks(client *http.Client, pageURL string) ([]string, error) {
 }
 
 func main() {
+	maxPages := flag.Int("max", 5, "maximum pages to visit")
+	maxDepth := flag.Int("depth", 1, "maximum link depth from the starting page")
+	flag.Parse()
+
+	if *maxPages < 1 {
+		log.Fatal("max must be at least 1")
+	}
+	if *maxDepth < 0 {
+		log.Fatal("depth cannot be negative")
+	}
+
 	client := &http.Client{Timeout: 10 * time.Second}
-	queue := []string{"https://go.dev/"}
-	seen := map[string]bool{queue[0]: true}
+	queue := []Page{{URL: "https://go.dev/", Depth: 0}}
+	seen := map[string]bool{queue[0].URL: true}
 	visited := 0
 
-	for len(queue) > 0 && visited < 5 {
+	for len(queue) > 0 && visited < *maxPages {
 		page := queue[0]
 		queue = queue[1:]
 
-		fmt.Println("\nVisiting:", page)
+		fmt.Printf("\nVisiting (depth %d): %s\n", page.Depth, page.URL)
 		visited++
 
-		links, err := fetchLinks(client, page)
+		links, err := fetchLinks(client, page.URL)
 		if err != nil {
 			log.Println(err)
 			continue
@@ -96,11 +113,16 @@ func main() {
 		fmt.Println("Links found:", len(links))
 
 		newLinks := 0
-		for _, link := range links {
-			if !seen[link] {
-				seen[link] = true
-				queue = append(queue, link)
-				newLinks++
+		if page.Depth < *maxDepth {
+			for _, link := range links {
+				if !seen[link] {
+					seen[link] = true
+					queue = append(queue, Page{
+						URL:   link,
+						Depth: page.Depth + 1,
+					})
+					newLinks++
+				}
 			}
 		}
 
