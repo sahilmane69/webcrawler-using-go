@@ -2,6 +2,10 @@
 
 A command-line crawler written in Go. It explores one hostname in breadth-first order, respects `robots.txt`, extracts page titles and short text excerpts, and saves a searchable CSV archive.
 
+## Build log
+
+Read [Building a Web Crawler in Go](https://webcrawler-in-go-sahilmane.surge.sh/) for the full two-day story: the first HTTP experiments, breadth-first crawling, redirects, `robots.txt`, concurrency, archive search, bugs I encountered, and the final verified run. The article documents this repository; the crawler itself is the command-line program below.
+
 ## Features
 
 - Configurable starting URL, page limit, depth, worker count, and CSV output path
