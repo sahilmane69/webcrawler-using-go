@@ -29,7 +29,7 @@ type Result struct {
 	Links  []string
 }
 
-func fetchPage(client *http.Client, pageURL string) (Result, error) {
+func fetchPage(client *http.Client, pageURL, host string) (Result, error) {
 	var result Result
 
 	req, err := http.NewRequestWithContext(
@@ -99,8 +99,8 @@ func fetchPage(client *http.Client, pageURL string) (Result, error) {
 			fullURL := resp.Request.URL.ResolveReference(link)
 			fullURL.Fragment = ""
 
-			if fullURL.Scheme == "https" &&
-				fullURL.Hostname() == resp.Request.URL.Hostname() {
+			if (fullURL.Scheme == "https" || fullURL.Scheme == "http") &&
+				fullURL.Hostname() == host {
 				result.Links = append(result.Links, fullURL.String())
 			}
 		}
@@ -111,6 +111,7 @@ func fetchPage(client *http.Client, pageURL string) (Result, error) {
 }
 
 func main() {
+	startURL := flag.String("url", "https://go.dev/", "starting URL")
 	maxPages := flag.Int("max", 5, "maximum pages to visit")
 	maxDepth := flag.Int("depth", 1, "maximum link depth")
 	flag.Parse()
@@ -121,6 +122,14 @@ func main() {
 	if *maxDepth < 0 {
 		log.Fatal("depth cannot be negative")
 	}
+
+	parsedURL, err := url.Parse(*startURL)
+	if err != nil ||
+		(parsedURL.Scheme != "https" && parsedURL.Scheme != "http") ||
+		parsedURL.Hostname() == "" {
+		log.Fatal("url must be a full http or https URL")
+	}
+	parsedURL.Fragment = ""
 
 	file, err := os.Create("results.csv")
 	if err != nil {
@@ -134,7 +143,7 @@ func main() {
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	queue := []Page{{URL: "https://go.dev/", Depth: 0}}
+	queue := []Page{{URL: parsedURL.String(), Depth: 0}}
 	seen := map[string]bool{queue[0].URL: true}
 	visited := 0
 
@@ -145,7 +154,7 @@ func main() {
 		fmt.Printf("\nVisiting (depth %d): %s\n", page.Depth, page.URL)
 		visited++
 
-		result, err := fetchPage(client, page.URL)
+		result, err := fetchPage(client, page.URL, parsedURL.Hostname())
 		if err != nil {
 			log.Println(err)
 		}
