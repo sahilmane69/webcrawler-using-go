@@ -6,6 +6,16 @@ A command-line crawler written in Go. It explores one hostname in breadth-first 
 
 Read [Building a Web Crawler in Go](https://webcrawler-in-go-sahilmane.surge.sh/) for the full two-day story: the first HTTP experiments, breadth-first crawling, redirects, `robots.txt`, concurrency, archive search, bugs I encountered, and the final verified run. The article documents this repository; the crawler itself is the command-line program below.
 
+## Development snapshots
+
+**Early crawl:** A five-page run showing breadth-first discovery and the pending queue.
+
+![Terminal output from an early five-page crawl](images/early-crawl.png)
+
+**Debugging:** An earlier run with request timeouts and navigation-heavy content previews. This is the problem I later fixed; the verified 20-page run described below had zero failed requests.
+
+![Terminal output from an earlier failing crawl used during debugging](images/terminal.png)
+
 ## Features
 
 - Configurable starting URL, page limit, depth, worker count, and CSV output path
@@ -71,6 +81,7 @@ webcrawler-using-go/
 │   └── url.go.txt
 └── images/
     ├── early-crawl.png
+    ├── terminal.png
     └── README.md
 ```
 
